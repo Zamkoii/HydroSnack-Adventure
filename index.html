@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HydroSnack Adventure</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        :root {
+            --pink-soft: #fcaed8; 
+            --pink-extra-soft: #fdf2f8;
+            --white-cell: #ffffff;
+            --border-gold: #fbbf24;
+            --primary-red: #d62828;
+            --shadow-red: #7f1d1d;
+        }
+
+        body {
+            background-color: #fef3c7;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            font-family: 'Arial Rounded MT Bold', Arial, sans-serif;
+            overflow: hidden;
+        }
+
+        /* Screen Management */
+        .screen {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            height: 100vh;
+            animation: fadeIn 0.5s ease;
+        }
+
+        .active { display: flex; }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* UI Elements */
+        .container-box {
+            background: rgba(255, 255, 255, 0.9);
+            padding: 2rem;
+            border-radius: 32px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.1);
+            text-align: center;
+            width: 90%;
+            max-width: 400px;
+            border: 4px solid var(--pink-soft);
+        }
+
+        .input-name {
+            width: 100%;
+            padding: 12px 20px;
+            margin: 20px 0;
+            border-radius: 50px;
+            border: 2px solid var(--pink-soft);
+            outline: none;
+            font-size: 1rem;
+            text-align: center;
+            transition: border-color 0.3s;
+        }
+
+        .input-name:focus { border-color: var(--primary-red); }
+
+        #game-board {
+            position: relative;
+            width: 90vw;
+            max-width: 450px;
+            aspect-ratio: 1 / 1;
+            background: white;
+            border: 8px solid var(--border-gold);
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+            margin-bottom: 15px;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(10, 1fr);
+            grid-template-rows: repeat(10, 1fr);
+            width: 100%;
+            height: 100%;
+        }
+
+        .cell {
+            border: 0.5px solid rgba(0,0,0,0.05);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 900;
+            font-size: clamp(9px, 2.5vw, 16px);
+            color: #1e293b;
+            position: relative;
+        }
+
+        .cell-pink { background-color: var(--pink-soft); }
+        .cell-white { background-color: var(--white-cell); }
+
+        .cell-special::after {
+            content: '🎮';
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            font-size: 10px;
+        }
+
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        #player {
+            position: absolute;
+            width: 30px;
+            height: 30px;
+            z-index: 50;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            filter: drop-shadow(0 3px 5px rgba(0,0,0,0.4));
+            pointer-events: none;
+            left: 0;
+            top: 0;
+            transform: translate(-100px, -100px); 
+        }
+
+        .controls {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 15px;
+            border-radius: 24px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+            width: 90%;
+            max-width: 400px;
+        }
+
+        .btn-roll {
+            background: linear-gradient(to bottom, #d62828, #b91c1c);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 50px;
+            font-family: 'Arial Black', sans-serif;
+            font-size: 1.1rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            cursor: pointer;
+            box-shadow: 0 6px 0 var(--shadow-red), 0 8px 15px rgba(0,0,0,0.2);
+            transition: all 0.1s;
+            outline: none;
+        }
+
+        .btn-roll:active:not(:disabled) { 
+            transform: translateY(4px);
+            box-shadow: 0 2px 0 var(--shadow-red);
+        }
+
+        .dice-box {
+            width: 55px;
+            height: 55px;
+            background: #ffffff;
+            border: 4px solid #b91c1c;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            color: #b91c1c;
+        }
+
+        #side-game-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.95);
+            z-index: 200;
+            display: none;
+            flex-direction: column;
+        }
+
+        .rolling { animation: dice-spin 0.15s infinite linear; }
+        @keyframes dice-spin {
+            0% { transform: scale(1) rotate(0deg); }
+            50% { transform: scale(1.1) rotate(10deg); }
+            100% { transform: scale(1) rotate(0deg); }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- SCREEN 1: HOME -->
+    <div id="screen-home" class="screen active">
+        <div class="container-box">
+            <h1 class="text-3xl font-black text-pink-600 mb-2 leading-tight">HydroSnack<br>Adventure</h1>
+            <p class="text-gray-500 text-sm mb-4">Masukkan namamu untuk memulai petualangan!</p>
+            <input type="text" id="playerNameInput" class="input-name" placeholder="Nama Pemain..." maxlength="15">
+            <button id="startBtn" class="btn-roll w-full">MULAI GAME</button>
+        </div>
+    </div>
+
+    <!-- SCREEN 2: GAMEPLAY -->
+    <div id="screen-game" class="screen">
+        <h2 id="display-name" class="text-lg font-bold text-pink-600 mb-2">Pemain: -</h2>
+        <div id="game-board">
+            <div class="grid" id="grid"></div>
+            <canvas id="gameCanvas"></canvas>
+            <svg id="player" viewBox="0 0 24 24" fill="#ef4444">
+                <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+            </svg>
+        </div>
+        <div class="controls">
+            <div id="status" class="font-bold text-gray-700 text-xs text-center">Kelipatan 4 = Tantangan!</div>
+            <div class="flex items-center gap-4">
+                <button id="rollBtn" class="btn-roll">KOCOK!</button>
+                <div id="dice-result" class="dice-box">🎲</div>
+            </div>
+            <div id="quest-status" class="text-xs text-blue-600 font-bold">Side Game: 0/5 Dimainkan</div>
+        </div>
+    </div>
+
+    <!-- SCREEN 3: WIN -->
+    <div id="screen-win" class="screen">
+        <div class="container-box border-yellow-400 bg-white">
+            <div class="text-6xl mb-4">🏆</div>
+            <h2 class="text-2xl font-black text-gray-800 mb-2">CONGRATULATIONS!</h2>
+            <h3 id="winner-name" class="text-3xl font-black text-pink-600 mb-6 uppercase">PEMAIN</h3>
+            <p class="text-gray-600 mb-8">Kamu telah menaklukkan semua rintangan HydroSnack!</p>
+            <button id="restartBtn" class="btn-roll w-full">MAIN LAGI</button>
+        </div>
+    </div>
+
+    <div id="side-game-overlay">
+        <div class="bg-red-600 text-white p-3 flex justify-between items-center font-bold">
+            <span>🎮 TANTANGAN!</span>
+            <span id="game-timer">90s</span>
+        </div>
+        <iframe id="side-game-iframe" class="flex-grow w-full bg-white border-none"></iframe>
+    </div>
+
+    <script>
+        let playerName = "";
+        let gamesPlayed = new Set();
+        let currentPos = 1;
+        let isMoving = false;
+
+        const screens = { home: 'screen-home', game: 'screen-game', win: 'screen-win' };
+        const grid = document.getElementById('grid');
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const playerPin = document.getElementById('player');
+        const rollBtn = document.getElementById('rollBtn');
+        const diceRes = document.getElementById('dice-result');
+        const statusText = document.getElementById('status');
+        const questText = document.getElementById('quest-status');
+        const sgOverlay = document.getElementById('side-game-overlay');
+        const sgIframe = document.getElementById('side-game-iframe');
+        const sgTimerText = document.getElementById('game-timer');
+
+        const diceEmojis = ['⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
+        const sideGameLinks = [
+            "https://matchdrv.vercel.app/", "https://chammatch.vercel.app/",
+            "https://saltmahjong.vercel.app/", "https://chemistryadventure.vercel.app/",
+            "https://kucing-pintar.vercel.app", "https://hydrochef.vercel.app/"
+        ];
+        const ladders = [{s:3,e:21},{s:13,e:46},{s:33,e:49},{s:50,e:69},{s:62,e:81},{s:74,e:92}];
+        const snakes = [{s:27,e:5},{s:43,e:18},{s:66,e:45},{s:89,e:53},{s:95,e:77},{s:99,e:41}];
+
+        function showScreen(screenKey) {
+            Object.values(screens).forEach(id => document.getElementById(id).classList.remove('active'));
+            document.getElementById(screens[screenKey]).classList.add('active');
+            
+            if(screenKey === 'game') {
+                initBoard(); 
+                setTimeout(() => { 
+                    drawAssets(); 
+                    updatePlayerUI(); 
+                }, 100);
+            }
+        }
+
+        function initBoard() {
+            grid.innerHTML = '';
+            for (let r = 9; r >= 0; r--) {
+                for (let c = 0; c < 10; c++) {
+                    let id = (r % 2 === 0) ? (r * 10) + (c + 1) : (r * 10) + (10 - c);
+                    const cell = document.createElement('div');
+                    cell.id = 'cell-' + id;
+                    const isSpecial = id % 4 === 0 && id !== 100;
+                    cell.className = `cell ${id % 2 === 0 ? 'cell-pink' : 'cell-white'} ${isSpecial ? 'cell-special' : ''}`;
+                    cell.innerText = id;
+                    grid.appendChild(cell);
+                }
+            }
+        }
+
+        function getCellCenter(id) {
+            const el = document.getElementById('cell-' + id);
+            if (!el) return {x: 0, y: 0};
+            const boardRect = document.getElementById('game-board').getBoundingClientRect();
+            const cellRect = el.getBoundingClientRect();
+            return {
+                x: (cellRect.left - boardRect.left) + (cellRect.width / 2),
+                y: (cellRect.top - boardRect.top) + (cellRect.height / 2)
+            };
+        }
+
+        function drawLadder(start, end) {
+            const dx = end.x - start.x, dy = end.y - start.y;
+            const angle = Math.atan2(dy, dx), dist = Math.sqrt(dx*dx + dy*dy);
+            
+            ctx.save(); 
+            ctx.translate(start.x, start.y); 
+            ctx.rotate(angle);
+            
+            ctx.strokeStyle = '#a5f3fc'; 
+            ctx.lineWidth = 5; 
+            ctx.lineCap = 'round';
+            ctx.shadowBlur = 4;
+            ctx.shadowColor = "rgba(0,0,0,0.3)";
+            
+            ctx.beginPath(); 
+            ctx.moveTo(0, -12); ctx.lineTo(dist, -12); 
+            ctx.moveTo(0, 12); ctx.lineTo(dist, 12); 
+            ctx.stroke();
+            
+            ctx.strokeStyle = '#7dd3fc';
+            ctx.lineWidth = 3;
+            const steps = Math.floor(dist / 15);
+            for(let i = 1; i < steps; i++) {
+                const x = (dist / steps) * i;
+                ctx.beginPath(); ctx.moveTo(x, -12); ctx.lineTo(x, 12); ctx.stroke();
+            }
+            ctx.restore();
+        }
+
+        function drawSnake(start, end) {
+            ctx.save(); 
+            ctx.lineCap = 'round';
+            ctx.shadowBlur = 6; 
+            ctx.shadowColor = 'rgba(0,0,0,0.5)';
+            
+            const cp1x = (start.x + end.x) / 2 + 35;
+            const cp1y = (start.y + end.y) / 2 - 25;
+
+            // Badan Ular
+            ctx.lineWidth = 15; 
+            ctx.strokeStyle = '#14532d';
+            ctx.beginPath(); 
+            ctx.moveTo(start.x, start.y);
+            ctx.quadraticCurveTo(cp1x, cp1y, end.x, end.y); 
+            ctx.stroke();
+            
+            // Pola Bintik
+            ctx.lineWidth = 5;
+            ctx.setLineDash([3, 12]); 
+            ctx.strokeStyle = '#fde047'; 
+            ctx.beginPath(); 
+            ctx.moveTo(start.x, start.y);
+            ctx.quadraticCurveTo(cp1x, cp1y, end.x, end.y); 
+            ctx.stroke();
+            
+            // Hitung sudut arah kepala berdasarkan titik kontrol kurva
+            const angle = Math.atan2(start.y - cp1y, start.x - cp1x);
+
+            // Lidah Merah (Memanjang di depan mata sesuai gambar)
+            ctx.setLineDash([]);
+            ctx.strokeStyle = '#ef4444';
+            ctx.lineWidth = 2.5;
+            ctx.beginPath();
+            const tongueLen = 20;
+            // Titik awal lidah sedikit di depan kepala
+            const txStart = start.x + Math.cos(angle) * 8;
+            const tyStart = start.y + Math.sin(angle) * 8;
+            ctx.moveTo(txStart, tyStart);
+            const txEnd = start.x + Math.cos(angle) * tongueLen;
+            const tyEnd = start.y + Math.sin(angle) * tongueLen;
+            ctx.lineTo(txEnd, tyEnd);
+            // Cabang lidah
+            ctx.moveTo(txEnd, tyEnd);
+            ctx.lineTo(txEnd + Math.cos(angle - 0.4) * 6, tyEnd + Math.sin(angle - 0.4) * 6);
+            ctx.moveTo(txEnd, tyEnd);
+            ctx.lineTo(txEnd + Math.cos(angle + 0.4) * 6, tyEnd + Math.sin(angle + 0.4) * 6);
+            ctx.stroke();
+
+            // Kepala Ular
+            ctx.fillStyle = '#14532d';
+            ctx.beginPath();
+            ctx.arc(start.x, start.y, 11, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Mata Putih (Dua mata bulat putih)
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            const eyeDist = 4.5;
+            const eyeAngleOffset = 0.7;
+            ctx.arc(start.x + Math.cos(angle - eyeAngleOffset) * eyeDist, start.y + Math.sin(angle - eyeAngleOffset) * eyeDist, 3.5, 0, Math.PI * 2);
+            ctx.arc(start.x + Math.cos(angle + eyeAngleOffset) * eyeDist, start.y + Math.sin(angle + eyeAngleOffset) * eyeDist, 3.5, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Pupil Hitam
+            ctx.fillStyle = '#000000';
+            ctx.beginPath();
+            ctx.arc(start.x + Math.cos(angle - eyeAngleOffset) * (eyeDist + 0.5), start.y + Math.sin(angle - eyeAngleOffset) * (eyeDist + 0.5), 1.5, 0, Math.PI * 2);
+            ctx.arc(start.x + Math.cos(angle + eyeAngleOffset) * (eyeDist + 0.5), start.y + Math.sin(angle + eyeAngleOffset) * (eyeDist + 0.5), 1.5, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.restore();
+        }
+
+        function drawAssets() {
+            canvas.width = canvas.offsetWidth; 
+            canvas.height = canvas.offsetHeight;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ladders.forEach(l => {
+                const s = getCellCenter(l.s), e = getCellCenter(l.e);
+                if(s.x !== 0) drawLadder(s, e);
+            });
+            snakes.forEach(s => {
+                const st = getCellCenter(s.s), en = getCellCenter(s.e);
+                if(st.x !== 0) drawSnake(st, en);
+            });
+        }
+
+        function updatePlayerUI() {
+            const center = getCellCenter(currentPos);
+            if (center.x === 0 && center.y === 0) return; 
+            playerPin.style.left = '0px';
+            playerPin.style.top = '0px';
+            playerPin.style.transform = `translate(${center.x - 15}px, ${center.y - 22}px)`;
+        }
+
+        async function triggerSideGame() {
+            let gameIndex = Math.floor(Math.random() * sideGameLinks.length);
+            gamesPlayed.add(gameIndex);
+            questText.innerText = `Side Game: ${gamesPlayed.size}/5 Dimainkan`;
+            sgIframe.src = sideGameLinks[gameIndex];
+            sgOverlay.style.display = 'flex';
+            let timeLeft = 90;
+            const timer = setInterval(() => {
+                timeLeft--; sgTimerText.innerText = timeLeft + 's';
+                if (timeLeft <= 0) { clearInterval(timer); closeSideGame(); }
+            }, 1000);
+            sgOverlay.dataset.timerId = timer;
+        }
+
+        function closeSideGame() {
+            clearInterval(sgOverlay.dataset.timerId);
+            sgOverlay.style.display = 'none';
+            sgIframe.src = "";
+            rollBtn.disabled = false;
+        }
+
+        async function move(steps) {
+            isMoving = true; rollBtn.disabled = true;
+            for(let i=0; i<steps; i++) {
+                if(currentPos < 100) { 
+                    currentPos++; 
+                    updatePlayerUI(); 
+                    await new Promise(r => setTimeout(r, 250)); 
+                }
+            }
+            const ladder = ladders.find(l => l.s === currentPos);
+            const snake = snakes.find(s => s.s === currentPos);
+            
+            if(ladder) { 
+                statusText.innerText = "Hore! Naik Tangga!";
+                await new Promise(r => setTimeout(r, 400));
+                currentPos = ladder.e; 
+                updatePlayerUI(); 
+            }
+            else if(snake) { 
+                statusText.innerText = "Yah! Turun Ular!";
+                await new Promise(r => setTimeout(r, 400));
+                currentPos = snake.e; 
+                updatePlayerUI(); 
+            }
+
+            if(currentPos === 100) {
+                if(gamesPlayed.size < 5) {
+                    statusText.innerText = "Main 5 Side Game dulu!";
+                    await new Promise(r => setTimeout(r, 1000));
+                    currentPos = 90; updatePlayerUI(); rollBtn.disabled = false;
+                } else {
+                    document.getElementById('winner-name').innerText = playerName;
+                    showScreen('win');
+                }
+            } else if(currentPos % 4 === 0) {
+                triggerSideGame();
+            } else { 
+                statusText.innerText = "Giliranmu kocok dadu!";
+                rollBtn.disabled = false; 
+            }
+            isMoving = false;
+        }
+
+        document.getElementById('startBtn').addEventListener('click', () => {
+            const name = document.getElementById('playerNameInput').value.trim();
+            if(!name) { alert("Silakan masukkan nama Anda!"); return; }
+            playerName = name;
+            currentPos = 1; 
+            document.getElementById('display-name').innerText = "Pemain: " + playerName;
+            showScreen('game');
+        });
+
+        document.getElementById('restartBtn').addEventListener('click', () => {
+            currentPos = 1;
+            gamesPlayed.clear();
+            questText.innerText = "Side Game: 0/5 Dimainkan";
+            showScreen('home');
+        });
+
+        rollBtn.addEventListener('click', async () => {
+            if(isMoving) return;
+            diceRes.classList.add('rolling');
+            let roll = 0;
+            for(let i=0; i<10; i++) {
+                roll = Math.floor(Math.random() * 6) + 1;
+                diceRes.innerText = diceEmojis[roll-1];
+                await new Promise(r => setTimeout(r, 80));
+            }
+            diceRes.classList.remove('rolling');
+            move(roll);
+        });
+
+        window.addEventListener('resize', () => { 
+            if(document.getElementById('screen-game').classList.contains('active')) {
+                drawAssets(); 
+                updatePlayerUI(); 
+            }
+        });
+    </script>
+</body>
+</html>
